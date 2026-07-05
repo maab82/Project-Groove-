@@ -61,6 +61,37 @@ The audio pipeline (`src/lib/audio-pipeline`) is deliberately split into replace
 Nothing is persisted: uploaded audio and every intermediate file live in a per-request temp
 directory that's deleted as soon as the response is sent, whether the request succeeds or fails.
 
+## Testing on a real phone
+
+Anything that touches the microphone (`getUserMedia`, `MediaRecorder`) needs a **secure context** —
+`https://`, or the special-cased `http://localhost`. A LAN address like `http://192.168.1.27:3000`
+is plain HTTP and is *never* a secure context, in any browser, on any OS — that's a spec rule, not
+an iOS quirk. `npm run dev` and testing from the same machine at `localhost` will work; opening
+that same LAN URL from a phone will silently fail `getUserMedia` because it's a genuinely different
+kind of origin, not a broken one.
+
+To test from a real device, front the local dev server with real HTTPS:
+
+```bash
+# terminal 1
+npm run dev
+
+# terminal 2 — install once: brew install cloudflared (or the Cloudflare download for your OS)
+cloudflared tunnel --url http://localhost:3000
+```
+
+Open the printed `https://*.trycloudflare.com` URL on the phone — real, trusted certificate, no
+device-side setup, `isSecureContext` reads `true`.
+
+For a fully local alternative with no third-party tunnel, use [mkcert](https://github.com/FiloSottile/mkcert)
+to issue a locally-trusted cert for your LAN IP, serve `next dev --experimental-https` (or a custom
+HTTPS server) with it, and install `mkcert`'s root CA on the phone once (AirDrop/email the `.pem`,
+install as a profile, then enable full trust under Settings → General → About → Certificate Trust
+Settings).
+
+Once deployed, a real host (Vercel, etc.) provides valid HTTPS automatically and none of this is
+needed — this is only for testing local `npm run dev` builds against a real device.
+
 ## Constraints
 
 - Max clip length: 20 seconds (uploads longer than that are trimmed).
