@@ -1,0 +1,519 @@
+<title>Producer Test Rig</title>
+<style>
+  html, body {
+    margin: 0;
+    min-height: 100%;
+    background: #0a0a0a;
+    color: #ddd;
+    font-family: ui-monospace, "SF Mono", "Cascadia Mono", monospace;
+    -webkit-tap-highlight-color: transparent;
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+  textarea, input {
+    -webkit-touch-callout: default;
+    -webkit-user-select: text;
+    user-select: text;
+  }
+  .orb {
+    touch-action: manipulation;
+  }
+  #app {
+    max-width: 640px;
+    margin: 0 auto;
+    padding: 2rem 1.4rem 4rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.6rem;
+  }
+  .eyebrow {
+    font-size: 0.65rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: #666;
+  }
+  .orb {
+    align-self: center;
+    width: 100px;
+    height: 100px;
+    border-radius: 50%;
+    border: 1px solid #333;
+    background: #111;
+    color: #999;
+    font-size: 0.7rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    cursor: pointer;
+  }
+  .orb[data-recording="true"] { background: #241414; border-color: #6b2b2b; color: #d99; }
+  .note {
+    font-size: 0.68rem;
+    color: #777;
+    text-align: center;
+    line-height: 1.5;
+    white-space: pre-line;
+  }
+  .transcript {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  .line {
+    padding: 0.7rem 0.9rem;
+    border: 1px solid #222;
+    border-radius: 6px;
+    font-size: 0.92rem;
+    line-height: 1.5;
+    color: #bbb;
+    cursor: pointer;
+    background: #0d0d0d;
+  }
+  .line:hover { border-color: #444; }
+  .line.chosen {
+    border-color: #c9a24a;
+    color: #f0e2bf;
+    background: #1c1608;
+  }
+  .line .score {
+    display: block;
+    margin-top: 0.4rem;
+    font-size: 0.62rem;
+    color: #776a4a;
+    letter-spacing: 0.02em;
+  }
+  .line.chosen .score { color: #a3873f; }
+  .override {
+    font-size: 0.62rem;
+    color: #555;
+    text-align: center;
+  }
+  .empty {
+    font-size: 0.8rem;
+    color: #555;
+    text-align: center;
+    padding: 2rem 0;
+  }
+
+  .qrow {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin-top: 0.9rem;
+  }
+  .qrow > span {
+    font-size: 0.78rem;
+    color: #999;
+  }
+  .chips {
+    display: flex;
+    gap: 0.5rem;
+  }
+  .chips.wrap { flex-wrap: wrap; }
+  .chips button {
+    font-family: inherit;
+    font-size: 0.7rem;
+    color: #999;
+    background: #141414;
+    border: 1px solid #2a2a2a;
+    border-radius: 999px;
+    padding: 0.4rem 0.8rem;
+    cursor: pointer;
+  }
+  .chips button:hover { border-color: #444; }
+  .chips button.selected {
+    color: #f0e2bf;
+    border-color: #c9a24a;
+    background: #1c1608;
+  }
+  #saveObs {
+    margin-top: 1rem;
+    font-family: inherit;
+    font-size: 0.75rem;
+    color: #f0e2bf;
+    background: #2a2211;
+    border: 1px solid #c9a24a;
+    border-radius: 6px;
+    padding: 0.6rem 1rem;
+    cursor: pointer;
+  }
+  #saveObs:disabled {
+    color: #666;
+    background: #141414;
+    border-color: #2a2a2a;
+    cursor: not-allowed;
+  }
+  .logHeader {
+    display: flex;
+    align-items: center;
+    gap: 0.7rem;
+    margin-top: 0.5rem;
+  }
+  .logHeader button {
+    font-family: inherit;
+    font-size: 0.62rem;
+    color: #888;
+    background: #141414;
+    border: 1px solid #2a2a2a;
+    border-radius: 4px;
+    padding: 0.25rem 0.55rem;
+    cursor: pointer;
+  }
+  .logRow {
+    display: flex;
+    justify-content: space-between;
+    gap: 0.8rem;
+    padding: 0.5rem 0;
+    border-top: 1px solid #1a1a1a;
+    font-size: 0.72rem;
+  }
+  .logIdx { color: #555; flex-shrink: 0; }
+  .logText { color: #aaa; flex: 1; }
+  .logFlags { color: #776a4a; flex-shrink: 0; white-space: nowrap; }
+</style>
+
+<div id="app">
+  <div>
+    <div class="eyebrow">producer test rig — not the product, a lab instrument</div>
+    <div class="eyebrow" id="diag" style="margin-top:0.5rem;color:#8a6;">checking mic permission state…</div>
+  </div>
+
+  <button class="orb" id="orb" data-recording="false">hold, ramble</button>
+  <p class="note" id="note">
+    say something real and unscripted — a complaint, a story, a rant — up to 15 seconds.<br>
+    works on iPhone and desktop alike — just needs mic permission, in a real browser tab.
+  </p>
+
+  <div id="playbackWrap" hidden>
+    <div class="eyebrow" style="margin-bottom:0.5rem">what you actually said</div>
+    <audio id="player" controls style="width:100%"></audio>
+    <p class="note" style="text-align:left;margin-top:0.9rem">
+      no automatic transcription here — this sandbox can't reach a speech-to-text service or load a model.
+      listen back and type roughly what you said below, one sentence per line or with normal punctuation.
+    </p>
+    <textarea id="transcriptInput" rows="4" placeholder="type it here..." style="width:100%;background:#111;color:#ddd;border:1px solid #2a2a2a;border-radius:6px;padding:0.7rem;font-family:inherit;font-size:0.85rem;box-sizing:border-box;"></textarea>
+    <button id="scoreBtn" style="margin-top:0.7rem;font-family:inherit;font-size:0.75rem;color:#f0e2bf;background:#2a2211;border:1px solid #c9a24a;border-radius:6px;padding:0.6rem 1rem;cursor:pointer;">score it</button>
+  </div>
+
+  <div id="transcriptWrap" hidden>
+    <div class="eyebrow" style="margin-bottom:0.6rem">what it heard — tap any line to overrule the pick</div>
+    <div class="transcript" id="transcript"></div>
+    <p class="override" id="overrideNote" hidden>overruled — that's the signal that matters, not the pick itself</p>
+
+    <div id="evalPanel" hidden>
+      <div class="qrow">
+        <span>embarrassing pick?</span>
+        <div class="chips" id="embChips">
+          <button data-val="yes">yes</button>
+          <button data-val="no">no</button>
+        </div>
+      </div>
+      <div class="qrow">
+        <span>did it feel right — "yeah, that's the part"?</span>
+        <div class="chips" id="agreeChips">
+          <button data-val="yes">yes</button>
+          <button data-val="no">no</button>
+        </div>
+      </div>
+      <div class="qrow" id="failureRow" hidden>
+        <span>if not — what kind of miss?</span>
+        <div class="chips wrap" id="failureChips">
+          <button data-val="setup-not-punchline">setup, not punchline</button>
+          <button data-val="ignored-deadpan">ignored deadpan</button>
+          <button data-val="emotion-over-specificity">emotion over specificity</button>
+          <button data-val="loudest-not-funniest">loudest, not funniest</button>
+          <button data-val="split-chorus">split across two lines</button>
+          <button data-val="transcription-error">transcription error</button>
+          <button data-val="scoring-error">scoring error</button>
+          <button data-val="other">other</button>
+        </div>
+      </div>
+      <button id="saveObs" disabled>save observation</button>
+    </div>
+  </div>
+
+  <div>
+    <div class="logHeader">
+      <span class="eyebrow">observations (<span id="obsCount">0</span>)</span>
+      <button id="copyLog">copy all as json</button>
+      <button id="clearLog">clear</button>
+    </div>
+    <div id="obsLog"></div>
+  </div>
+
+  <div class="empty" id="unsupported" hidden>
+    This browser doesn't support microphone recording. Try Safari or Chrome on a real device.
+  </div>
+</div>
+
+<script>
+(() => {
+  const orb = document.getElementById("orb");
+  const note = document.getElementById("note");
+  const transcriptWrap = document.getElementById("transcriptWrap");
+  const transcriptEl = document.getElementById("transcript");
+  const overrideNote = document.getElementById("overrideNote");
+  const unsupported = document.getElementById("unsupported");
+  const evalPanel = document.getElementById("evalPanel");
+  const embChips = document.getElementById("embChips");
+  const agreeChips = document.getElementById("agreeChips");
+  const failureRow = document.getElementById("failureRow");
+  const failureChips = document.getElementById("failureChips");
+  const saveObsBtn = document.getElementById("saveObs");
+  const obsCountEl = document.getElementById("obsCount");
+  const obsLogEl = document.getElementById("obsLog");
+  const copyLogBtn = document.getElementById("copyLog");
+  const clearLogBtn = document.getElementById("clearLog");
+
+  const STORAGE_KEY = "groove_producer_observations_v1";
+  let observations = [];
+  try { observations = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]"); } catch { observations = []; }
+  let lastResult = null;
+  let currentEval = { embarrassing: null, agreed: null, failureCategory: null };
+
+  function selectChip(group, val) {
+    [...group.children].forEach((b) => b.classList.toggle("selected", b.dataset.val === val));
+  }
+  function checkReady() {
+    const needsFailure = currentEval.agreed === "no";
+    saveObsBtn.disabled = !(currentEval.embarrassing && currentEval.agreed && (!needsFailure || currentEval.failureCategory));
+  }
+  embChips.addEventListener("click", (e) => {
+    const btn = e.target.closest("button"); if (!btn) return;
+    currentEval.embarrassing = btn.dataset.val;
+    selectChip(embChips, btn.dataset.val);
+    checkReady();
+  });
+  agreeChips.addEventListener("click", (e) => {
+    const btn = e.target.closest("button"); if (!btn) return;
+    currentEval.agreed = btn.dataset.val;
+    selectChip(agreeChips, btn.dataset.val);
+    failureRow.hidden = btn.dataset.val === "yes";
+    if (btn.dataset.val === "yes") { currentEval.failureCategory = null; selectChip(failureChips, null); }
+    checkReady();
+  });
+  failureChips.addEventListener("click", (e) => {
+    const btn = e.target.closest("button"); if (!btn) return;
+    currentEval.failureCategory = btn.dataset.val;
+    selectChip(failureChips, btn.dataset.val);
+    checkReady();
+  });
+  saveObsBtn.addEventListener("click", () => {
+    if (!lastResult) return;
+    observations.push({
+      ts: new Date().toISOString(),
+      transcript: lastResult.sentences,
+      chosenText: lastResult.sentences[lastResult.finalIndex],
+      originalPickText: lastResult.sentences[lastResult.bestIdx],
+      wasOverruled: lastResult.finalIndex !== lastResult.bestIdx,
+      scoreBreakdown: lastResult.scored[lastResult.bestIdx],
+      embarrassing: currentEval.embarrassing === "yes",
+      agreed: currentEval.agreed === "yes",
+      failureCategory: currentEval.failureCategory,
+    });
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(observations));
+    renderLog();
+    evalPanel.hidden = true;
+  });
+  copyLogBtn.addEventListener("click", () => {
+    navigator.clipboard.writeText(JSON.stringify(observations, null, 2)).catch(() => {});
+  });
+  clearLogBtn.addEventListener("click", () => {
+    if (!confirm("clear all logged observations?")) return;
+    observations = [];
+    localStorage.removeItem(STORAGE_KEY);
+    renderLog();
+  });
+  function renderLog() {
+    obsCountEl.textContent = observations.length;
+    obsLogEl.innerHTML = observations.slice().reverse().map((o, i) => {
+      const flag = o.embarrassing ? "⚠️ embarrassing " : "";
+      const outcome = o.agreed ? "✅ agreed" : "❌ " + (o.failureCategory || "");
+      return `<div class="logRow"><span class="logIdx">#${observations.length - i}</span><span class="logText">"${escapeHtml(o.chosenText)}"</span><span class="logFlags">${flag}${outcome}</span></div>`;
+    }).join("");
+  }
+  renderLog();
+
+  const playbackWrap = document.getElementById("playbackWrap");
+  const player = document.getElementById("player");
+  const transcriptInput = document.getElementById("transcriptInput");
+  const scoreBtn = document.getElementById("scoreBtn");
+  const diag = document.getElementById("diag");
+
+  (async () => {
+    const parts = [];
+    parts.push(`secure context: ${window.isSecureContext}`);
+    parts.push(`mediaDevices: ${!!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia)}`);
+    parts.push(`MediaRecorder: ${!!window.MediaRecorder}`);
+    if (navigator.permissions && navigator.permissions.query) {
+      try {
+        const status = await navigator.permissions.query({ name: "microphone" });
+        parts.push(`mic permission: ${status.state}`);
+      } catch (err) {
+        parts.push(`mic permission query unsupported (${err.name})`);
+      }
+    } else {
+      parts.push("permissions API not queryable on this browser");
+    }
+    diag.textContent = parts.join(" · ");
+  })();
+
+  if (!navigator.mediaDevices || !window.MediaRecorder) {
+    unsupported.hidden = false;
+    orb.disabled = true;
+    orb.textContent = "unavailable";
+  }
+
+  const MAX_MS = 15000;
+  let mediaRecorder = null;
+  let micStream = null;
+  let recording = false;
+  let autoStopTimer = null;
+  let chunks = [];
+
+  function splitSentences(text) {
+    return text
+      .split(/(?<=[.!?])\s+|\n+/)
+      .map((s) => s.trim())
+      .filter((s) => s.length > 0);
+  }
+
+  // Pure heuristic scoring on real transcribed text — no LLM, no server call.
+  // Transparent on purpose: this rig exists to inspect *why*, not just *what*.
+  function scoreLine(text, index, total) {
+    const words = text.trim().split(/\s+/).filter(Boolean);
+    const wordCount = words.length;
+    let score = 0;
+    const reasons = [];
+
+    if (/\b\d+([.,]\d+)?\b/.test(text)) { score += 3; reasons.push("has a number (+3)"); }
+
+    const midCaps = words.slice(1).filter((w) => /^[A-Z][a-z]/.test(w));
+    if (midCaps.length > 0) { score += 2; reasons.push("has a proper noun (+2)"); }
+
+    if (wordCount >= 4 && wordCount <= 13) { score += 2; reasons.push("clean, quotable length (+2)"); }
+    else if (wordCount > 20) { score -= 2; reasons.push("too rambling to quote (-2)"); }
+    else if (wordCount < 3) { score -= 1; reasons.push("too short to land (-1)"); }
+
+    if (index === total - 1 && total > 1) { score += 1.5; reasons.push("last thing said — the button (+1.5)"); }
+
+    const strongWords = /\b(never|always|literally|actually|swear|can't believe|worst|best|hate|love|dead|dying|obsessed)\b/i;
+    if (strongWords.test(text)) { score += 1.5; reasons.push("emotionally charged language (+1.5)"); }
+
+    const flatFillers = /^(um|uh|so|like|anyway|okay|ok)\b/i;
+    if (flatFillers.test(text.trim())) { score -= 1.5; reasons.push("opens with filler (-1.5)"); }
+
+    return { score, reasons };
+  }
+
+  function renderTranscript(sentences) {
+    transcriptEl.innerHTML = "";
+    const scored = sentences.map((text, i) => ({ text, ...scoreLine(text, i, sentences.length) }));
+    let bestIdx = 0;
+    scored.forEach((s, i) => { if (s.score > scored[bestIdx].score) bestIdx = i; });
+
+    lastResult = { sentences, scored, bestIdx, finalIndex: bestIdx };
+    currentEval = { embarrassing: null, agreed: null, failureCategory: null };
+    selectChip(embChips, null);
+    selectChip(agreeChips, null);
+    selectChip(failureChips, null);
+    failureRow.hidden = true;
+    saveObsBtn.disabled = true;
+    evalPanel.hidden = false;
+
+    scored.forEach((s, i) => {
+      const div = document.createElement("div");
+      div.className = "line" + (i === bestIdx ? " chosen" : "");
+      div.innerHTML = `${escapeHtml(s.text)}<span class="score">score ${s.score.toFixed(1)} — ${s.reasons.join(", ") || "no signals fired"}</span>`;
+      div.addEventListener("click", () => {
+        document.querySelectorAll(".line").forEach((el) => el.classList.remove("chosen"));
+        div.classList.add("chosen");
+        overrideNote.hidden = i === bestIdx;
+        lastResult.finalIndex = i;
+      });
+      transcriptEl.appendChild(div);
+    });
+    transcriptWrap.hidden = false;
+  }
+
+  function escapeHtml(str) {
+    const d = document.createElement("div");
+    d.textContent = str;
+    return d.innerHTML;
+  }
+
+  async function startRecording() {
+    if (recording) return;
+    note.textContent = "say something real and unscripted — a complaint, a story, a rant — up to 15 seconds.\nworks on iPhone and desktop alike — just needs mic permission, in a real browser tab.";
+
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      note.textContent = "navigator.mediaDevices.getUserMedia does not exist in this context at all — likely blocked above the page level (insecure context or a permissions policy on this host), not a permission you can grant from Settings.";
+      return;
+    }
+
+    try {
+      micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    } catch (err) {
+      note.textContent = `mic request failed: ${err.name || "unknown error"} — ${err.message || "no message given"}`;
+      return;
+    }
+    recording = true;
+    orb.dataset.recording = "true";
+    orb.textContent = "…";
+    playbackWrap.hidden = true;
+    transcriptWrap.hidden = true;
+    overrideNote.hidden = true;
+    chunks = [];
+
+    const mime = ["audio/webm;codecs=opus", "audio/webm", "audio/mp4"].find(
+      (t) => MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(t)
+    );
+    mediaRecorder = new MediaRecorder(micStream, mime ? { mimeType: mime } : undefined);
+    mediaRecorder.ondataavailable = (e) => { if (e.data.size) chunks.push(e.data); };
+    mediaRecorder.start();
+    autoStopTimer = setTimeout(stopRecording, MAX_MS);
+  }
+
+  async function stopRecording() {
+    if (!recording) return;
+    recording = false;
+    clearTimeout(autoStopTimer);
+    orb.dataset.recording = "false";
+    orb.textContent = "hold, ramble";
+
+    await new Promise((resolve) => {
+      mediaRecorder.onstop = resolve;
+      try { mediaRecorder.stop(); } catch { resolve(); }
+    });
+    micStream.getTracks().forEach((t) => t.stop());
+
+    const blob = new Blob(chunks, { type: chunks[0]?.type || "audio/webm" });
+    if (blob.size < 500) {
+      note.textContent = "didn't catch anything — try again, a little louder.";
+      return;
+    }
+    const url = URL.createObjectURL(blob);
+    player.src = url;
+    transcriptInput.value = "";
+    playbackWrap.hidden = false;
+  }
+
+  scoreBtn.addEventListener("click", () => {
+    const raw = transcriptInput.value.trim();
+    if (!raw) return;
+    let sentences = splitSentences(raw);
+    if (sentences.length === 1) {
+      const words = sentences[0].split(/\s+/);
+      if (words.length > 16) {
+        sentences = [];
+        for (let i = 0; i < words.length; i += 9) sentences.push(words.slice(i, i + 9).join(" "));
+      }
+    }
+    renderTranscript(sentences);
+  });
+
+  orb.addEventListener("pointerdown", (e) => { e.preventDefault(); startRecording(); });
+  orb.addEventListener("pointerup", stopRecording);
+  orb.addEventListener("pointercancel", stopRecording);
+})();
+</script>
